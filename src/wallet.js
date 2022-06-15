@@ -4,13 +4,13 @@ const ERC20 = require("../abi/ERC20.json")
 
 require('dotenv').config()
 
-const providers = {}
+// const providers = {}
 
-const init = async () => {
-    for(let chainId in chains) {
-        providers[chainId] = new ethers.providers.JsonRpcProvider(chains[chainId].url)
-    }
-}
+// const init = async () => {
+//     for(let chainId in chains) {
+//         providers[chainId] = new ethers.providers.JsonRpcProvider(chains[chainId].url)
+//     }
+// }
 
 const swapzoneTokens = Object.entries(chains).reduce((prev,cur)=>{
     prev[cur[1].coin] = [cur[0]]
@@ -24,31 +24,35 @@ const swapzoneTokens = Object.entries(chains).reduce((prev,cur)=>{
 const transactions = {}
 const wallets = {}
 
-const checkConfirm = (chainId, hash, id, tm) => {
-    setTimeout(async () => {
-        const transaction = transactions[id]
-        const provider = providers[chainId]
-        const tx = await provider.getTransaction(hash)
-        const blockNumber = await provider.getBlockNumber()
-        if(blockNumber > tx.blockNumber+10 || tm>20)
-            swapTokens(transaction)
-        else
-            checkConfirm(chainId, hash, id, tm+1)
-    }, 500)
-}
+// const checkConfirm = (chainId, hash, id, tm) => {
+//     setTimeout(async () => {
+//         const transaction = transactions[id]
+//         const provider = providers[chainId]
+//         const tx = await provider.getTransaction(hash)
+//         const blockNumber = await provider.getBlockNumber()
+//         if(blockNumber > tx.blockNumber+10 || tm>20)
+//             swapTokens(transaction)
+//         else
+//             checkConfirm(chainId, hash, id, tm+1)
+//     }, 500)
+// }
 
 const swapTokens = async (transaction) => {
     transaction.status = "exchanging"
     const chainIdSrc = swapzoneTokens[transaction.from][0]
     const chainIdDst = swapzoneTokens[transaction.to][0]
-    const providerSrc = providers[chainIdSrc]
-    const providerDst = providers[chainIdDst]
+    const providerSrc = new ethers.providers.JsonRpcProvider(chains[chainIdSrc].url)
+    const providerDst = new ethers.providers.JsonRpcProvider(chains[chainIdDst].url)
     const wallet = new ethers.Wallet(process.env.RELAYER_WALLET, providerDst)
     // temporary wallet -> backend wallet
-    const fee = await providerSrc.getFeeData()
+    const fee = await providerSrc.getGasPrice()
+    // const fee = await providerSrc.getFeeData()
     if(swapzoneTokens[transaction.from][1]==undefined) {
-        const gas = fee.maxFeePerGas.mul(21001)
+        console.log(fee)
+        const gas = fee.mul(21000)
+        // const gas = fee.maxFeePerGas.mul(21000)
         const value = ethers.utils.parseEther(String(transaction.amountDeposit)).sub(gas)
+        // console.log(transaction.amountDeposit, value, fee, await providerSrc.getBalance(wallets[transaction.id].address))
         await wallets[transaction.id].connect(providerSrc).sendTransaction({ to: wallet.address, value })
     } else {
         const token = new ethers.Contract(swapzoneTokens[transaction.from][1], ERC20, providerSrc)
@@ -66,6 +70,7 @@ const swapTokens = async (transaction) => {
         const value = ethers.utils.parseEther(String(transaction.amountEstimated))
         await token.connect(wallet).transfer(transaction.addressReceive, value)
     }
+    transaction.amountRealReceive = transaction.amountEstimated
     transaction.status = "finished"
 }
 
@@ -84,13 +89,12 @@ const listen = (transaction) => {
         providerSrc.on('block',(blockNumber) => {
             providerSrc.getBlockWithTransactions(blockNumber).then((block)=>{
                 const txs = block.transactions.filter((tx)=>{
-                    return tx.value.eq(ethers.utils.parseEther(transaction.amountDeposit)) 
-                        && tx.to.toLowerCase()==wallet.address.toLowerCase()
+                    return tx.to && tx.to.toLowerCase()==wallet.address.toLowerCase() /*&& tx.value.eq(ethers.utils.parseEther(transaction.amountDeposit)) */ 
                 })
                 if(txs.length) {
                     wallets[transaction.id] = wallet
-                    checkConfirm(chainIdSrc, txs[0].hash, transaction.id, 0)
                     providerSrc.off('block')
+                    swapTokens(transaction)
                 }
             })
             // if(tx.to && tx.to.toLowerCase()==wallet.address.toLowerCase()) {
@@ -118,5 +122,5 @@ const listen = (transaction) => {
 }
 
 module.exports = {
-    init, listen, transactions
+    listen, transactions
 }

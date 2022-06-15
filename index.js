@@ -15,4 +15,4 @@ app.use(router)
 app.listen(8000, () => {
     console.log("Swapzone is started!")
 })
-wallet.init()
+// wallet.init()
