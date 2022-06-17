@@ -13,7 +13,7 @@ require('dotenv').config()
 // }
 
 const swapzoneTokens = Object.entries(chains).reduce((prev,cur)=>{
-    prev[cur[1].coin] = [cur[0]]
+    prev[cur[1].coin] = [cur[0], cur[1].address]
     if(cur[1].tokens) 
         Object.entries(cur[1].tokens).map(([symbol,address])=>{
             prev[symbol] = [cur[0], address]
@@ -23,6 +23,26 @@ const swapzoneTokens = Object.entries(chains).reduce((prev,cur)=>{
 
 const transactions = {}
 const wallets = {}
+const faucets = {}
+
+const currencies = () => {
+    return Object.entries(chains).reduce((prev,cur)=>{
+        prev.push({
+            name: cur[1].symbol.toUpperCase(),
+            ticker: cur[1].coin,
+            network: cur[1].name
+        })
+        if(cur[1].tokens) 
+            Object.entries(cur[1].tokens).map(([symbol,address])=>{
+                prev.push({
+                    name: `${cur[1].name} ${symbol.toUpperCase()}`,
+                    ticker: symbol,
+                    network: cur[1].name
+                })
+            })
+        return prev
+    }, [])
+}
 
 // const checkConfirm = (chainId, hash, id, tm) => {
 //     setTimeout(async () => {
@@ -121,6 +141,24 @@ const listen = (transaction) => {
     return wallet.address
 }
 
+const faucet = async (token, address) => {
+    const amount = 100
+    const id = `${address}:${token}`
+    if(faucets[id] && faucets[id] > new Date().getTime()) 
+        throw new Error(`Wait untill ${new Date(faucets[id])}`)
+    const chainId = swapzoneTokens[token][0]
+    const provider = new ethers.providers.JsonRpcProvider(chains[chainId].url)
+    const wallet = new ethers.Wallet(process.env.RELAYER_WALLET, provider)
+    if(swapzoneTokens[token][1]==undefined)
+        await wallet.sendTransaction({to: address, value: ethers.utils.parseEther(String(amount))})
+    else {
+        const contract = new ethers.Contract(swapzoneTokens[token][1], ERC20, provider)
+        await contract.connect(wallet).transfer(address, ethers.utils.parseEther(String(amount)))
+    }
+    faucets[id] = new Date().getTime() + 3600*amount
+    return amount
+}
+
 module.exports = {
-    listen, transactions
+    listen, transactions, faucet, currencies
 }

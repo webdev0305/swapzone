@@ -3,6 +3,8 @@
         "name": "Avalanche",
         "url": "https://api.avax-test.network/ext/bc/C/rpc",
         "coin": "avaxc",
+        "symbol": "avax",
+        "address": "0xa0B6D4aF16bfd92deD0660894e1aeb22AE00673c",
         "tokens": {
             "usdt": "0xa0B6D4aF16bfd92deD0660894e1aeb22AE00673c"
         }
@@ -11,14 +13,18 @@
         "name": "Fantom",
         "url": "https://rpc.testnet.fantom.network/",
         "coin": "ftm",
+        "symbol": "ftm",
+        "address": "0xa0B6D4aF16bfd92deD0660894e1aeb22AE00673c",
         "tokens": {}
     },
     "97": {
         "name": "Binance",
         "url": "https://speedy-nodes-nyc.moralis.io/89b4f5c6d2fc13792dcaf416/bsc/testnet",
         "coin": "bnbbsc",
+        "symbol": "bnb",
+        "address": "0xa0B6D4aF16bfd92deD0660894e1aeb22AE00673c",
         "tokens": {
-            "busd": "0x89a0BA7D5703c98B79445774d34148F5e2B415F5"
+            "busd": "0x12719A4Af755dDa09eFe075d3Bc3837fE161816b"
         }
     }
 }

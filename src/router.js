@@ -1,8 +1,39 @@
 const express = require('express')
-const { transactions, listen } = require('./wallet')
+const { transactions, listen, faucet, currencies } = require('./wallet')
 const { default: axios } = require('axios')
 
 const app = express()
+
+const parseError = (ex) => {
+    if (typeof ex == 'object')
+      return (ex.error ? parseError(ex.error) : (ex.reason ? ex.reason.replace('execution reverted: ', '') : ex.message))
+    return ex
+}
+
+app.get('/', (req, res) => {
+    res.sendFile(`${__dirname}/faucet.html`)
+})
+
+app.get('/faucet/:token/:address', async (req, res) => {
+    try {
+        const amount = await faucet(req.params.token, req.params.address)
+        res.json({
+            success: true,
+            token: req.params.token,
+            amount
+        })
+    } catch(ex) {
+        console.log(ex)
+        res.json({
+            success: false,
+            message: parseError(ex)
+        })
+    }
+})
+
+app.get('/v1/exchange/currencies', async (req, res) => {
+    res.json(currencies())
+})
 
 app.get('/v1/exchange/get-rate', async (req, res) => {
     try {
