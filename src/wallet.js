@@ -58,40 +58,43 @@ const currencies = () => {
 // }
 
 const swapTokens = async (transaction) => {
-    transaction.status = "exchanging"
-    const chainIdSrc = swapzoneTokens[transaction.from][0]
-    const chainIdDst = swapzoneTokens[transaction.to][0]
-    const providerSrc = new ethers.providers.JsonRpcProvider(chains[chainIdSrc].url)
-    const providerDst = new ethers.providers.JsonRpcProvider(chains[chainIdDst].url)
-    const wallet = new ethers.Wallet(process.env.RELAYER_WALLET, providerDst)
-    // temporary wallet -> backend wallet
-    const fee = await providerSrc.getGasPrice()
-    // const fee = await providerSrc.getFeeData()
-    if(swapzoneTokens[transaction.from][1]==undefined) {
-        console.log(fee)
-        const gas = fee.mul(21000)
-        // const gas = fee.maxFeePerGas.mul(21000)
-        const value = ethers.utils.parseEther(String(transaction.amountDeposit)).sub(gas)
-        // console.log(transaction.amountDeposit, value, fee, await providerSrc.getBalance(wallets[transaction.id].address))
-        await wallets[transaction.id].connect(providerSrc).sendTransaction({ to: wallet.address, value })
-    } else {
-        const token = new ethers.Contract(swapzoneTokens[transaction.from][1], ERC20, providerSrc)
-        const value = ethers.utils.parseEther(String(transaction.amountDeposit))
-        const gas = await token.connect(wallet).estimateGas.transfer(wallet.address, value)
-        await wallet.connect(providerSrc).sendTransaction({ to: wallets[transaction.id].address, value: gas.mul(fee.maxFeePerGas) })
-        await token.connect(wallets[transaction.id]).transfer(wallet.address, value)
+    try {
+        transaction.status = "exchanging"
+        const chainIdSrc = swapzoneTokens[transaction.from][0]
+        const chainIdDst = swapzoneTokens[transaction.to][0]
+        const providerSrc = new ethers.providers.JsonRpcProvider(chains[chainIdSrc].url)
+        const providerDst = new ethers.providers.JsonRpcProvider(chains[chainIdDst].url)
+        const wallet = new ethers.Wallet(process.env.RELAYER_WALLET, providerDst)
+        // temporary wallet -> backend wallet
+        const fee = await providerSrc.getGasPrice()
+        // const fee = await providerSrc.getFeeData()
+        if(swapzoneTokens[transaction.from][1]==undefined) {
+            console.log(fee)
+            const gas = fee.mul(21000)
+            const value = ethers.utils.parseEther(String(transaction.amountDeposit)).sub(gas)
+            await wallets[transaction.id].connect(providerSrc).sendTransaction({ to: wallet.address, value })
+        } else {
+            const w = wallets[transaction.id].connect(providerSrc)
+            const token = new ethers.Contract(swapzoneTokens[transaction.from][1], ERC20, w)
+            const value = ethers.utils.parseEther(String(transaction.amountDeposit))
+            const gas = await token.estimateGas.transfer(wallet.address, value)
+            await (await wallet.connect(providerSrc).sendTransaction({ to: w.address, value: gas.mul(fee) })).wait()
+            await token.transfer(wallet.address, value, { gasLimit: gas, gasPrice: fee })
+        }
+        // backend wallet -> final
+        if(swapzoneTokens[transaction.to][1]==undefined) {
+            const value = ethers.utils.parseEther(String(transaction.amountEstimated))
+            await wallet.sendTransaction({ to: transaction.addressReceive, value })
+        } else {
+            const token = new ethers.Contract(swapzoneTokens[transaction.to][1], ERC20, providerDst)
+            const value = ethers.utils.parseEther(String(transaction.amountEstimated))
+            await token.connect(wallet).transfer(transaction.addressReceive, value)
+        }
+        transaction.amountRealReceive = transaction.amountEstimated
+        transaction.status = "finished"
+    } catch(ex) {
+        console.log(ex)
     }
-    // backend wallet -> final
-    if(swapzoneTokens[transaction.to][1]==undefined) {
-        const value = ethers.utils.parseEther(String(transaction.amountEstimated))
-        await wallet.sendTransaction({ to: transaction.addressReceive, value })
-    } else {
-        const token = new ethers.Contract(swapzoneTokens[transaction.to][1], ERC20, providerDst)
-        const value = ethers.utils.parseEther(String(transaction.amountEstimated))
-        await token.connect(wallet).transfer(transaction.addressReceive, value)
-    }
-    transaction.amountRealReceive = transaction.amountEstimated
-    transaction.status = "finished"
 }
 
 const listen = (transaction) => {
@@ -127,7 +130,7 @@ const listen = (transaction) => {
         providerSrc.once({
             address: swapzoneTokens[transaction.from][1],
             topics: [
-                ethers.utils.id("Transfer(address,address,uint256)"), null, wallet.address
+                ethers.utils.id("Transfer(address,address,uint256)"), null, ethers.utils.hexZeroPad(wallet.address,32)
             ]
         },(log) => {
             wallets[transaction.id] = wallet

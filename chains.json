@@ -4,9 +4,9 @@
         "url": "https://api.avax-test.network/ext/bc/C/rpc",
         "coin": "avaxc",
         "symbol": "avax",
-        "address": "0xa0B6D4aF16bfd92deD0660894e1aeb22AE00673c",
+        "address": "0x50E869BA3DeF02863869642f5f9573f74076FD89",
         "tokens": {
-            "usdt": "0xa0B6D4aF16bfd92deD0660894e1aeb22AE00673c"
+            "usdt": "0x7c41fbA3774eaE1338186074FB67D79BBd50f2f4"
         }
     },
     "4002": {
@@ -22,9 +22,9 @@
         "url": "https://speedy-nodes-nyc.moralis.io/89b4f5c6d2fc13792dcaf416/bsc/testnet",
         "coin": "bnbbsc",
         "symbol": "bnb",
-        "address": "0xa0B6D4aF16bfd92deD0660894e1aeb22AE00673c",
+        "address": "0xd591BAf9262AD671C00B11b1fD3BC0d45EB24fFE",
         "tokens": {
-            "busd": "0x12719A4Af755dDa09eFe075d3Bc3837fE161816b"
+            "busd": "0x95643CeD4DF4B5Bc605a4CEE79f470497CaF5dD9"
         }
     }
 }
